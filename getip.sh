@@ -13,15 +13,46 @@
 
 host=${1:-'easy.box'}
 
-request=$(curl -Lsv "$host/main.cgi?page=login.html" 2>&1)
+sessionfile="/tmp/easysession"
 
-# get cookie needed for request
-cookie=$(echo "$request" |  grep 'Set-Cookie' | cut -d';' -f1 | cut -d' ' -f3)
-# get 'cookie' send in payload
-dm_cookie=$(echo "$request" | grep dm_cookie | sed -e "s/.*dm_cookie='\(.*\)';.*/\1/")
+curlcookies() {
+    response=$(curl -Lsv "$host/main.cgi?page=login.html" 2>&1)
 
-PAYLOAD='<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/"><soapenv:Header><DMCookie>'$dm_cookie'</DMCookie></soapenv:Header><soapenv:Body><cwmp:GetParameterValues xmlns=""><ParameterNames><string>InternetGatewayDevice.WANDevice.6.WANConnectionDevice.4.WANPPPConnection.1.ExternalIPAddress</string></ParameterNames></cwmp:GetParameterValues></soapenv:Body></soapenv:Envelope>'
+    # get cookie needed for request
+    cookie=$(echo "$response" |  grep 'Set-Cookie' | cut -d';' -f1 | cut -d' ' -f3)
+    # get 'cookie' send in payload
+    dm_cookie=$(echo "$response" | grep dm_cookie | sed -e "s/.*dm_cookie='\(.*\)';.*/\1/")
 
-response=$(curl -sX POST -H "Cookie: $cookie" -H 'Content-Type: text/xml; charset="utf-8"' -H 'X-Requested-With: XMLHttpRequest' -H 'Accept:application/xml, text/xml, */*; q=0.01 ' -d "$PAYLOAD" "http://$host/data_model.cgi" | grep '<Value' | sed -e 's/.*>\([0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}\)<.*/\1/' 2>&1)
+    echo "$cookie" > "$sessionfile"
+    echo "$dm_cookie" >> "$sessionfile"
+}
 
-echo "$response"
+curlip() {
+
+	PAYLOAD='<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/"><soapenv:Header><DMCookie>'$dm_cookie'</DMCookie></soapenv:Header><soapenv:Body><cwmp:GetParameterValues xmlns=""><ParameterNames><string>InternetGatewayDevice.WANDevice.6.WANConnectionDevice.4.WANPPPConnection.1.ExternalIPAddress</string></ParameterNames></cwmp:GetParameterValues></soapenv:Body></soapenv:Envelope>'
+
+	response=$(curl -sX POST -H "Cookie: $cookie" -d "$PAYLOAD" "http://$host/data_model.cgi")
+	EXIT="$?"
+	STATUS=$(echo "$response" | grep "403 Forbidden" | wc -l )
+	EXIT="$(($EXIT + $STATUS))"
+	#test "$(($EXIT + $STATUS))" -gt "0" && exit 1
+
+	ip=$(echo "$response" | grep '<Value' | sed -e 's/.*>\([0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}\)<.*/\1/' 2>&1)
+}
+
+
+if test -f "$sessionfile"; then
+    session=$(cat /tmp/easysession)
+    cookie=$(echo "$session" | head -1)
+    dm_cookie=$(echo "$session" | tail -1)
+else
+    curlcookies
+fi
+
+curlip
+
+if test "$EXIT" -gt "0" && test -f "$sessionfile"; then
+    rm "$sessionfile"
+else
+    echo "$ip"
+fi
