@@ -1,4 +1,4 @@
-This script might be interesting for you if you need to obtain your external ip address of you Vodafone easybox router e.g. for use with a dyndns script or as a starting point if you want to read other data from your easybox.
+This script may be of interest if you need to obtain the external IP address of your Vodafone easybox router, e.g. for use with a dyndns script, or as a starting point for reading other data from your easybox.
 
 
 # Usage
@@ -13,8 +13,9 @@ This script might be interesting for you if you need to obtain your external ip 
 
 # Issues
 
-If there are issues with the script open a issue. As long as I have access to the router, I might be able to help.import
+If you have any problems with the script, please open an issue. As long as I have access to the router, I might be able to help.
 
 # API
 
 I started to make the code reusable in python, see `easybox.py`, it's not much, but maybe some might be interessted or maybe I pick it up some day.
+I've started to make the code reusable as a python class (see `easybox.py`), it's not much, but someone might be interested.
